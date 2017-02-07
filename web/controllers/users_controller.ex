@@ -8,18 +8,19 @@ defmodule User.UsersController do
     domain: Application.get_env(:user, :mailgun_domain),
     key: Application.get_env(:user, :mailgun_key)
   alias User.Repo
+  alias User.NewPasswordRequest
   alias User.User
 
-  defparams register_validation %{
+  defparams register_input %{
     email!: :string,
     password!: :string,
     username!: :string
   }
 
   def register(conn, params) do
-    changeset = register_validation(params)
+    input = register_input(params)
 
-    if changeset.valid? do
+    if input.valid? do
       salt = Comeonin.Bcrypt.gen_salt
       hash = Comeonin.Bcrypt.hashpass params["password"], salt
 
@@ -28,36 +29,40 @@ defmodule User.UsersController do
         "salt" => salt
       })
 
-      case %User{} |> User.insert_changeset(params) |> Repo.insert do
-        {:ok, user} ->
-          Logger.info "Inserted user - #{inspect user}"
-          json conn, user
-        {:error, changeset} ->
-          Logger.info "Error inserting user - #{inspect changeset.errors}"
-          conn |> put_status(400) |> json(errors(changeset))
-      end
+      %User{}
+        |> User.insert_changeset(params)
+        |> Repo.insert
+        |> case do
+            {:ok, user} ->
+              Logger.info "Inserted user - #{inspect user}"
+              json conn, user
+            {:error, changeset} ->
+              Logger.info "Error inserting user - #{inspect changeset.errors}"
+              conn |> put_status(400) |> json(errors(changeset))
+           end
+
     else
-      conn |> put_status(400) |> json(errors(changeset))
+      conn |> put_status(400) |> json(errors(input))
     end
   end
 
-  defparams login_validation %{
+  defparams login_input %{
     email!: :string,
     password!: :string,
   }
 
   def login(conn, params) do
-    changeset = login_validation(params)
+    input = login_input(params)
 
-    if changeset.valid? do
+    if input.valid? do
       user = Repo.get_by(User, email: params["email"])
 
       if user do
         Logger.info "Found user - #{inspect user}"
-        hash = Comeonin.Bcrypt.hashpass params["password"], user.salt
+        hash = Comeonin.Bcrypt.hashpass(params["password"], user.salt)
 
         if user.password == hash do
-          json conn, user
+          conn |> json(user)
         else
           Logger.info "Incorrect password for user - #{params["email"]}"
           conn |> put_status(400) |> json(%{error: "Invalid request"})
@@ -67,42 +72,79 @@ defmodule User.UsersController do
         conn |> put_status(400) |> json(%{error: "Invalid request"})
       end
     else
-      conn |> put_status(400) |> json(errors(changeset))
+      conn |> put_status(400) |> json(errors(input))
     end
   end
 
-  defparams forgot_password_validation %{
+  defparams forgot_password_input %{
     email!: :string
   }
 
   def forgot_password(conn, params) do
-    changeset = forgot_password_validation(params)
+    input = forgot_password_input(params)
 
-    if changeset.valid? do
+    if input.valid? do
       user = Repo.get_by(User, email: params["email"])
-
 
       if user do
         Logger.info "Found user - #{inspect user}"
-        send_email to: user.email,
-          from: "noreplay@game.com",
-          subject: "Reset password",
-          html: "#{Ecto.UUID.generate()}"
+
+        reset_code = Ecto.UUID.generate()
+        params = Map.merge(params, %{
+          "user_id" => user.id,
+          "reset_code" => reset_code
+        })
+
+        %NewPasswordRequest{}
+          |> NewPasswordRequest.insert_changeset(params)
+          |> Repo.insert
+          |> case do
+              {:ok, request} ->
+                Logger.info "Inserted password reset request - #{inspect request}"
+                send_email to: user.email,
+                  from: "noreplay@game.com",
+                  subject: "Reset password",
+                  html: reset_code
+              {:error, changeset} ->
+                Logger.info "Error inserting user - #{inspect changeset.errors}"
+                conn |> put_status(400) |> json(errors(changeset))
+             end
       else
         Logger.warn "Could not find user by email - #{params["email"]}"
       end
 
       json conn, %{message: "Reset password email sent"}
     else
-      conn |> put_status(400) |> json(errors(changeset))
+      conn |> put_status(400) |> json(errors(input))
     end
   end
 
-  def new_password(conn, params) do
+  defparams new_password_input %{
+    reset_code!: :string,
+    password!: :string,
+  }
 
+  def new_password(conn, params) do
+    input = new_password_input(params)
+
+    if input.valid? do
+      age = NewPasswordRequest
+        |> Repo.get_by(reset_code: params["reset_code"])
+        |> Map.get(:inserted_at)
+        |> Timex.diff(Timex.now, :hours)
+
+      if age < 24 do
+        conn |> json %{}
+      else
+        conn |> put_status(400) |> json %{error: "Reset code is invalid or expired"}
+      end
+    else
+      conn |> put_status(400) |> json(errors(input))
+    end
   end
 
   def change_password(conn, params) do
+
   end
 
   defp errors(validator) do

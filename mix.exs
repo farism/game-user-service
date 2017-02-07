@@ -19,7 +19,7 @@ defmodule User.Mixfile do
   def application do
     [mod: {User, []},
      applications: [:phoenix, :phoenix_pubsub, :phoenix_html, :cowboy, :logger, :gettext,
-                    :phoenix_ecto, :postgrex, :mailgun]]
+                    :phoenix_ecto, :timex_ecto, :postgrex, :mailgun]]
   end
 
   # Specifies which paths to compile per environment.
@@ -36,9 +36,11 @@ defmodule User.Mixfile do
      {:postgrex, ">= 0.0.0"},
      {:gettext, "~> 0.11"},
      {:cowboy, "~> 1.0.0"},
-     {:mailgun, git: "git://github.com/farism/mailgun.git"},
      {:cors_plug, "~> 1.1"},
+     {:mailgun, git: "git://github.com/farism/mailgun.git"},
      {:comeonin, "~> 3.0"},
+     {:timex, "~> 3.1"},
+     {:timex_ecto, "~> 3.1"},
      {:params, "~> 2.0"},
      {:ex_json_schema, "~> 0.5"},
      {:phoenix_swagger, "~> 0.3"},
@@ -53,7 +55,7 @@ defmodule User.Mixfile do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     ["dev": ["ecto.setup", "phoenix.server"],
-     "test": ["ecto.setup", "test"],
+     "test.watch": ["ecto.reset", "test.watch"],
      "ecto.setup": ["ecto.create", "ecto.migrate"],
      "ecto.reset": ["ecto.drop", "ecto.setup"],
      "swagger": ["compile", "phoenix.swagger.generate priv/static/swagger.json"]]
