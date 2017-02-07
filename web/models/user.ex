@@ -2,7 +2,6 @@ defmodule User.User do
   use User.Web, :model
 
   @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
 
   @derive {Poison.Encoder, only: [:email, :username, :inserted_at]}
   schema "users" do

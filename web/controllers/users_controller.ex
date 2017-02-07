@@ -22,7 +22,7 @@ defmodule User.UsersController do
 
     if input.valid? do
       salt = Comeonin.Bcrypt.gen_salt
-      hash = Comeonin.Bcrypt.hashpass params["password"], salt
+      hash = Comeonin.Bcrypt.hashpass(params["password"], salt)
 
       params = Map.merge(params, %{
         "password" => hash,
@@ -89,14 +89,8 @@ defmodule User.UsersController do
       if user do
         Logger.info "Found user - #{inspect user}"
 
-        reset_code = Ecto.UUID.generate()
-        params = Map.merge(params, %{
-          "user_id" => user.id,
-          "reset_code" => reset_code
-        })
-
         %NewPasswordRequest{}
-          |> NewPasswordRequest.insert_changeset(params)
+          |> NewPasswordRequest.insert_changeset(%{ user_id: user.id })
           |> Repo.insert
           |> case do
               {:ok, request} ->
@@ -104,7 +98,7 @@ defmodule User.UsersController do
                 send_email to: user.email,
                   from: "noreplay@game.com",
                   subject: "Reset password",
-                  html: reset_code
+                  html: request.id
               {:error, changeset} ->
                 Logger.info "Error inserting user - #{inspect changeset.errors}"
                 conn |> put_status(400) |> json(errors(changeset))
@@ -128,16 +122,51 @@ defmodule User.UsersController do
     input = new_password_input(params)
 
     if input.valid? do
-      age = NewPasswordRequest
-        |> Repo.get_by(reset_code: params["reset_code"])
-        |> Map.get(:inserted_at)
-        |> Timex.diff(Timex.now, :hours)
+      #get request
+      Repo.get(NewPasswordRequest, params["reset_code"])
+        |> case do
+            nil -> IO.inspect {:error, "Reset code not found"}
+            request -> {:ok, request}
+           end
+        # get user
+        |> case do
+            {:ok, request} ->
+              age = Timex.diff(Timex.now, request.inserted_at, :hours)
+              cond do
+                age < 24 ->
+                  Repo.get(User, request.user_id)
+                    |> case do
+                        nil -> {:error, "User not found"}
+                        user -> {:ok, user}
+                       end
+                true -> {:error, "Reset code expired"}
+              end
+            other -> other
+           end
+        # update password
+        |> case do
+            {:ok, user} ->
+              hash = Comeonin.Bcrypt.hashpass(params["password"], user.salt)
+              user
+                |> Ecto.Changeset.change(password: hash)
+                |> Repo.update
+            other -> other
+           end
+        # send response
+        |> case do
+            {:ok, _} ->
+              conn |> json %{message: "Password reset"}
+            {:error, _} ->
+              conn |> put_status(400) |> json %{error: "Reset code is invalid or expired"}
+           end
 
-      if age < 24 do
-        conn |> json %{}
-      else
-        conn |> put_status(400) |> json %{error: "Reset code is invalid or expired"}
-      end
+
+      # if inserted_at < 24 do
+      #
+      #   conn |> json %{}
+      # else
+      #   conn |> put_status(400) |> json %{error: "Reset code is invalid or expired"}
+      # end
     else
       conn |> put_status(400) |> json(errors(input))
     end

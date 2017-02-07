@@ -176,12 +176,43 @@ defmodule User.UserControllerTest do
 
     email = read_email_file("../../priv/mailgun.json")
 
+    # bad uuid
     response = build_conn()
-      |> post(@new_password_path, [reset_code: email.html, password: "newpw"])
+      |> post(@new_password_path, [reset_code: Ecto.UUID.generate(), password: "newpw"])
       |> json_response(400)
 
     assert response == %{
-      "error" => ["Reset code is invalid or expired"],
+      "error" => "Reset code is invalid or expired",
+    }
+
+    # expired
+    User.NewPasswordRequest
+      |> User.Repo.get(email.html)
+      |> case do
+          nil -> nil
+          request -> request
+            |> Ecto.Changeset.change(inserted_at: Timex.shift(request.inserted_at, hours: -24))
+         end
+      |> Repo.update
+
+    response = build_conn()
+      |> post(@new_password_path, [reset_code: email.html, password: "newpw"])
+      |> json_response(400)
+  end
+
+  test "#new_password returns 200 when `reset_code` is valid" do
+    build_conn()
+      |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
+      |> post(@forgot_password_path, [email: "john@doe.com"])
+
+    email = read_email_file("../../priv/mailgun.json")
+
+    response = build_conn()
+      |> post(@new_password_path, [reset_code: email.html, password: "newpw"])
+      |> json_response(200)
+
+    assert response == %{
+      "message" => "Password reset",
     }
   end
 
