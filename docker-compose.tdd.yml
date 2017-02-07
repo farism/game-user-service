@@ -1,0 +1,9 @@
+version: '2'
+services:
+  user:
+    build:
+      args:
+        env: test
+    environment:
+      - POSTGRES_DB=user_test
+    command: mix test.watch

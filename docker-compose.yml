@@ -1,0 +1,28 @@
+version: '2'
+services:
+  db:
+    extends:
+      file: ../db/docker-compose.yml
+      service: db
+  user:
+    build:
+      context: .
+      args:
+        env: dev
+    depends_on:
+      - db
+    links:
+      - db
+    volumes:
+      - ./mix.exs:/app/mix.exs
+      - ./config:/app/config
+      - ./lib:/app/lib
+      - ./priv:/app/priv
+      - ./test:/app/test
+      - ./web:/app/web
+    ports:
+      - 4000:4000
+    env_file: .env
+    environment:
+      - POSTGRES_DB=user_dev
+    command: mix dev
