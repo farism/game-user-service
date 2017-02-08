@@ -17,11 +17,31 @@ defmodule User.UsersController do
     username!: :string
   }
 
+  defparams login_input %{
+    email!: :string,
+    password!: :string,
+  }
+
+  defparams forgot_password_input %{
+    email!: :string
+  }
+
+  defparams new_password_input %{
+    reset_code!: :string,
+    password!: :string,
+  }
+
+  defparams change_password_input %{
+    email!: :string,
+    password!: :string,
+    password_new!: :string,
+  }
+
   def register(conn, params) do
     input = register_input(params)
 
     if input.valid? do
-      {salt, hash} = salt_hash(params["password"])
+      {salt, hash} = hashpass(params["password"])
       params = Map.merge(params, %{"password" => hash, "salt" => salt})
 
       %User{}
@@ -40,17 +60,11 @@ defmodule User.UsersController do
     end
   end
 
-  defparams login_input %{
-    email!: :string,
-    password!: :string,
-  }
-
   def login(conn, params) do
     input = login_input(params)
 
     if input.valid? do
-      User
-        |> Repo.get_by(email: params["email"])
+      Repo.get_by(User, email: params["email"])
         |> case do
             nil -> {:error, "Invalid login"}
             user ->
@@ -68,10 +82,6 @@ defmodule User.UsersController do
       {:error, err} -> conn |> put_status(400) |> json(%{error: err})
     end
   end
-
-  defparams forgot_password_input %{
-    email!: :string
-  }
 
   def forgot_password(conn, params) do
     input = forgot_password_input(params)
@@ -105,11 +115,6 @@ defmodule User.UsersController do
     end
   end
 
-  defparams new_password_input %{
-    reset_code!: :string,
-    password!: :string,
-  }
-
   def new_password(conn, params) do
     input = new_password_input(params)
 
@@ -137,7 +142,7 @@ defmodule User.UsersController do
         # update password
         |> case do
             {:ok, user} ->
-              {salt, hash} = salt_hash(params["password"])
+              {salt, hash} = hashpass(params["password"])
               user
                 |> Ecto.Changeset.change(salt: salt, password: hash)
                 |> Repo.update
@@ -158,10 +163,44 @@ defmodule User.UsersController do
   end
 
   def change_password(conn, params) do
+    input = change_password_input(params)
 
+    if input.valid? do
+      #get request
+      Repo.get_by(User, email: params["email"])
+        |> case do
+            nil -> {:error, "Invalid request"}
+            user ->
+              hash = Comeonin.Bcrypt.hashpass(params["password"], user.salt)
+              cond do
+                user.password == hash -> {:ok, user}
+                true -> {:error, "Invalid request"}
+              end
+           end
+        # update password
+        |> case do
+            {:ok, user} ->
+              {salt, hash} = hashpass(params["password_new"])
+              user
+                |> Ecto.Changeset.change(salt: salt, password: hash)
+                |> Repo.update
+            other -> other
+           end
+        # send response
+        |> case do
+            {:ok, _} -> {:ok, "Password changed"}
+            {:error, _} -> {:error, "Invalid request"}
+           end
+    else
+      {:error, errors(input)}
+    end
+    |> case do
+      {:ok, msg} -> conn |> json(%{message: msg})
+      {:error, err} -> conn |> put_status(400) |> json(%{error: err})
+    end
   end
 
-  defp salt_hash(password) do
+  defp hashpass(password) do
     salt = Comeonin.Bcrypt.gen_salt
     hash = Comeonin.Bcrypt.hashpass(password, salt)
     {salt, hash}
