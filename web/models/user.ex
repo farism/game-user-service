@@ -13,7 +13,7 @@ defmodule User.User do
     timestamps()
   end
 
-  def insert_changeset(struct, params \\ %{}) do
+  def changeset(struct, params \\ %{}) do
     struct
       |> cast(params, [:email, :password, :salt, :username])
       |> validate_required([:email, :password, :salt, :username])

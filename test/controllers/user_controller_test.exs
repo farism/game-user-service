@@ -29,9 +29,11 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "email" => ["can't be blank"],
-      "password" => ["can't be blank"],
-      "username" => ["can't be blank"]
+      "error" => %{
+        "email" => ["can't be blank"],
+        "password" => ["can't be blank"],
+        "username" => ["can't be blank"]
+      }
     }
   end
 
@@ -42,7 +44,9 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "email" => ["has already been taken"]
+      "error" => %{
+        "email" => ["has already been taken"]
+      }
     }
 
     response = build_conn()
@@ -51,7 +55,9 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "username" => ["has already been taken"]
+      "error" => %{
+        "username" => ["has already been taken"]
+      }
     }
   end
 
@@ -73,8 +79,10 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "email" => ["can't be blank"],
-      "password" => ["can't be blank"]
+      "error" => %{
+        "email" => ["can't be blank"],
+        "password" => ["can't be blank"]
+      }
     }
   end
 
@@ -84,7 +92,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Invalid request"
+      "error" => "Invalid login"
     }
   end
 
@@ -95,7 +103,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Invalid request"
+      "error" => "Invalid login"
     }
   end
 
@@ -118,7 +126,9 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "email" => ["can't be blank"]
+      "error" => %{
+        "email" => ["can't be blank"]
+      }
     }
   end
 
@@ -153,7 +163,7 @@ defmodule User.UserControllerTest do
 
     assert Map.take(email, [:to, :from, :subject]) == %{
       to: "john@doe.com",
-      from: "noreplay@game.com",
+      from: "noreply@mmo.com",
       subject: "Reset password"
     }
   end
@@ -164,8 +174,10 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "reset_code" => ["can't be blank"],
-      "password" => ["can't be blank"]
+      "error" => %{
+        "reset_code" => ["can't be blank"],
+        "password" => ["can't be blank"]
+      }
     }
   end
 
@@ -198,6 +210,10 @@ defmodule User.UserControllerTest do
     response = build_conn()
       |> post(@new_password_path, [reset_code: email.html, password: "newpw"])
       |> json_response(400)
+
+    assert response == %{
+      "error" => "Reset code is invalid or expired",
+    }
   end
 
   test "#new_password returns 200 when `reset_code` is valid" do
