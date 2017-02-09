@@ -17,26 +17,6 @@ defmodule User.UsersController do
     username!: :string
   }
 
-  defparams login_input %{
-    email!: :string,
-    password!: :string,
-  }
-
-  defparams forgot_password_input %{
-    email!: :string
-  }
-
-  defparams new_password_input %{
-    reset_code!: :string,
-    password!: :string,
-  }
-
-  defparams change_password_input %{
-    email!: :string,
-    password!: :string,
-    password_new!: :string,
-  }
-
   def register(conn, params) do
     input = register_input(params)
 
@@ -60,6 +40,11 @@ defmodule User.UsersController do
     end
   end
 
+  defparams login_input %{
+    email!: :string,
+    password!: :string,
+  }
+
   def login(conn, params) do
     input = login_input(params)
 
@@ -82,6 +67,10 @@ defmodule User.UsersController do
       {:error, err} -> conn |> put_status(400) |> json(%{error: err})
     end
   end
+
+  defparams forgot_password_input %{
+    email!: :string
+  }
 
   def forgot_password(conn, params) do
     input = forgot_password_input(params)
@@ -114,6 +103,11 @@ defmodule User.UsersController do
       {:error, err} -> conn |> put_status(400) |> json(%{error: err})
     end
   end
+
+  defparams new_password_input %{
+    reset_code!: :string,
+    password!: :string,
+  }
 
   def new_password(conn, params) do
     input = new_password_input(params)
@@ -161,6 +155,12 @@ defmodule User.UsersController do
       {:error, err} -> conn |> put_status(400) |> json(%{error: err})
     end
   end
+
+  defparams change_password_input %{
+    email!: :string,
+    password!: :string,
+    password_new!: :string,
+  }
 
   def change_password(conn, params) do
     input = change_password_input(params)
