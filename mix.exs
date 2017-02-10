@@ -36,14 +36,12 @@ defmodule User.Mixfile do
      {:postgrex, ">= 0.0.0"},
      {:gettext, "~> 0.11"},
      {:cowboy, "~> 1.0.0"},
-     {:cors_plug, "~> 1.1"},
      {:mailgun, git: "git://github.com/farism/mailgun.git"},
+     {:jose, "~> 1.8"},
      {:comeonin, "~> 3.0"},
      {:timex, "~> 3.1"},
      {:timex_ecto, "~> 3.1"},
      {:params, "~> 2.0"},
-     {:ex_json_schema, "~> 0.5"},
-     {:phoenix_swagger, "~> 0.3"},
      {:mix_test_watch, "~> 0.3.2", only: :dev, runtime: false}]
   end
 
@@ -57,7 +55,6 @@ defmodule User.Mixfile do
     ["dev": ["ecto.setup", "phoenix.server"],
      "test.watch": ["ecto.reset", "test.watch"],
      "ecto.setup": ["ecto.create", "ecto.migrate"],
-     "ecto.reset": ["ecto.drop", "ecto.setup"],
-     "swagger": ["compile", "phoenix.swagger.generate priv/static/swagger.json"]]
+     "ecto.reset": ["ecto.drop", "ecto.setup"]]
   end
 end

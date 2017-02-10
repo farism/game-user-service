@@ -3,6 +3,9 @@ defmodule User.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    # plug Guardian.Plug.VerifyHeader
+    # plug Guardian.Plug.EnsureAuthenticated, handler: Users.Token
+    # plug Guardian.Plug.LoadResource
   end
 
   # Other scopes may use custom stacks.
