@@ -30,19 +30,20 @@ defmodule User.Mixfile do
   #
   # Type `mix help deps` for examples and options.
   defp deps do
-    [{:phoenix, "~> 1.2.0"},
+    [{:comeonin, "~> 3.0"},
+     {:cowboy, "~> 1.0.0"},
+     {:gettext, "~> 0.11"},
+     {:guardian, "~> 0.14"},
+     {:jose, "~> 1.8"},
+     {:mailgun, git: "git://github.com/farism/mailgun.git"},
+     {:mix_test_watch, "~> 0.3.2", only: :dev, runtime: false},
+     {:params, "~> 2.0"},
+     {:phoenix, "~> 1.2.0"},
      {:phoenix_pubsub, "~> 1.0"},
      {:phoenix_ecto, "~> 3.0"},
      {:postgrex, ">= 0.0.0"},
-     {:gettext, "~> 0.11"},
-     {:cowboy, "~> 1.0.0"},
-     {:mailgun, git: "git://github.com/farism/mailgun.git"},
-     {:jose, "~> 1.8"},
-     {:comeonin, "~> 3.0"},
      {:timex, "~> 3.1"},
-     {:timex_ecto, "~> 3.1"},
-     {:params, "~> 2.0"},
-     {:mix_test_watch, "~> 0.3.2", only: :dev, runtime: false}]
+     {:timex_ecto, "~> 3.1"}]
   end
 
   # Aliases are shortcuts or tasks specific to the current project.
@@ -52,9 +53,10 @@ defmodule User.Mixfile do
   #
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
-    ["dev": ["ecto.setup", "phoenix.server"],
-     "test.watch": ["ecto.reset", "test.watch"],
+    ["dev": ["deps", "ecto.setup", "phoenix.server"],
+     "test.watch": ["deps", "ecto.reset", "test.watch"],
      "ecto.setup": ["ecto.create", "ecto.migrate"],
-     "ecto.reset": ["ecto.drop", "ecto.setup"]]
+     "ecto.reset": ["ecto.drop", "ecto.setup"],
+     "deps": ["deps.get", "deps.compile"]]
   end
 end

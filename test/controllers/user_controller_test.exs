@@ -191,9 +191,14 @@ defmodule User.UserControllerTest do
       |> Map.get("email")
       |> get_user_activation_from_email()
 
-    response = build_conn()
+    conn = build_conn()
       |> post(@activate_path, [activation_code: user_activation.id])
       |> post(@login_path, [email: "john@doe.com", password: "pw"])
+
+    assert get_resp_header(conn, "authorization") != ""
+    assert get_resp_header(conn, "x-expires") != ""
+
+    response = conn
       |> json_response(200)
       |> Map.delete("inserted_at")
 

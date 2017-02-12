@@ -62,7 +62,7 @@ defmodule User.UsersController do
     with true <- validate_params(activate_params(params)),
          {:ok, user_activation} <- get_user_activation(params["activation_code"]),
          {:ok, user} <- get_user(id: user_activation.user_id),
-         {:ok, user} <- update_user_active(user),
+         {:ok, user} <- set_user_as_active(user),
          {:ok, user_activation} <- delete_user_activation(user_activation)
     do
       conn |> json(%{message: "User activated"})
@@ -75,7 +75,8 @@ defmodule User.UsersController do
     with true <- validate_params(login_params(params)),
          {:ok, user} <- get_user(email: params["email"]),
          true <- validate_user_password(user, params["password"]),
-         true <- validate_user_active(user)
+         true <- validate_user_active(user),
+         conn <- set_auth_and_exp_headers(conn, user)
     do
       conn |> json(user)
     else
@@ -158,7 +159,7 @@ defmodule User.UsersController do
          end
   end
 
-  defp update_user_active(user) do
+  defp set_user_as_active(user) do
     user
       |> Ecto.Changeset.change(active: true)
       |> Repo.update
@@ -265,6 +266,20 @@ defmodule User.UsersController do
       true
     else
       {:error, display_errors(changeset)}
+    end
+  end
+
+  defp set_auth_and_exp_headers(conn, user) do
+    with conn <- Guardian.Plug.api_sign_in(conn, user),
+         jwt <- Guardian.Plug.current_token(conn),
+         {:ok, claims} <- Guardian.Plug.claims(conn),
+         exp <- Map.get(claims, "exp")
+    do
+      conn
+        |> put_resp_header("authorization", "Bearer #{jwt}")
+        |> put_resp_header("x-expires", "#{exp}")
+    else
+      {:error, _} -> conn
     end
   end
 

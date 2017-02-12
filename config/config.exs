@@ -23,14 +23,14 @@ config :logger, :console,
   metadata: [:request_id]
 
 config :guardian, Guardian,
-  allowed_algos: ["HS512"], # optional
+  allowed_algos: ["RS512"], # optional
   verify_module: Guardian.JWT,  # optional
   issuer: "Users",
   ttl: { 30, :days },
   allowed_drift: 2000,
   verify_issuer: true, # optional
-  secret_key: {Users.GuardianSecretKey, :fetch},
-  serializer: Users.GuardianSerializer
+  secret_key: {User.GuardianSecretKey, :fetch},
+  serializer: User.GuardianSerializer
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
