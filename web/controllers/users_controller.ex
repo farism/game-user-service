@@ -261,14 +261,6 @@ defmodule User.UsersController do
     {salt, hash}
   end
 
-  defp validate_params(changeset) do
-    if changeset.valid? do
-      true
-    else
-      {:error, display_errors(changeset)}
-    end
-  end
-
   defp set_auth_and_exp_headers(conn, user) do
     with conn <- Guardian.Plug.api_sign_in(conn, user),
          jwt <- Guardian.Plug.current_token(conn),
@@ -280,6 +272,14 @@ defmodule User.UsersController do
         |> put_resp_header("x-expires", "#{exp}")
     else
       {:error, _} -> conn
+    end
+  end
+
+  defp validate_params(changeset) do
+    if changeset.valid? do
+      true
+    else
+      {:error, display_errors(changeset)}
     end
   end
 

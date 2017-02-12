@@ -11,6 +11,7 @@ RUN mix archive.install --force https://github.com/phoenixframework/archives/raw
 
 RUN mkdir -p /app
 COPY ./mix.exs /app/mix.exs
+COPY ./config /app/config
 WORKDIR /app
 
 RUN mix deps.get

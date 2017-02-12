@@ -25,5 +25,6 @@ services:
       - 4000:4000
     env_file: .env
     environment:
+      - MIX_ENV=dev
       - POSTGRES_DB=user_dev
     command: mix dev

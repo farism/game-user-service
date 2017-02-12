@@ -25,7 +25,7 @@ config :logger, :console,
 config :guardian, Guardian,
   allowed_algos: ["RS512"], # optional
   verify_module: Guardian.JWT,  # optional
-  issuer: "Users",
+  issuer: "User",
   ttl: { 30, :days },
   allowed_drift: 2000,
   verify_issuer: true, # optional

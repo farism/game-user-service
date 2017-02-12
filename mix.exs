@@ -36,7 +36,7 @@ defmodule User.Mixfile do
      {:guardian, "~> 0.14"},
      {:jose, "~> 1.8"},
      {:mailgun, git: "git://github.com/farism/mailgun.git"},
-     {:mix_test_watch, "~> 0.3.2", only: :dev, runtime: false},
+     {:mix_test_watch, "~> 0.3.2", only: :test, runtime: false},
      {:params, "~> 2.0"},
      {:phoenix, "~> 1.2.0"},
      {:phoenix_pubsub, "~> 1.0"},
