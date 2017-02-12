@@ -3,13 +3,16 @@ defmodule User.UsersController do
   use User.Web, :controller
   use Params
   use Mailgun.Client,
-    mode: :test,
+    mode: Mix.env,
     test_file_path: "priv/mailgun.json",
     domain: Application.get_env(:user, :mailgun_domain),
     key: Application.get_env(:user, :mailgun_key)
   alias User.Repo
   alias User.NewPasswordRequest
+  alias User.UserActivation
   alias User.User
+
+  # param validation changesets
 
   defparams register_params %{
     email!: :string,
@@ -17,25 +20,37 @@ defmodule User.UsersController do
     username!: :string
   }
 
-  def register(conn, params) do
-    with true <- validate_params(register_params(params)),
-         {:ok, user} <- insert_user(params)
-    do
-      conn |> json(user)
-    else
-      {:error, err} -> conn |> put_status(400) |> json(%{error: err})
-    end
-  end
+  defparams activate_params %{
+    activation_code!: :string
+  }
 
   defparams login_params %{
     email!: :string,
     password!: :string,
   }
 
-  def login(conn, params) do
-    with true <- validate_params(login_params(params)),
-         {:ok, user} <- get_user(email: params["email"]),
-         {:ok, user} <- validate_user_password(user, params["password"])
+  defparams forgot_password_params %{
+    email!: :string
+  }
+
+  defparams new_password_params %{
+    reset_code!: :string,
+    password!: :string,
+  }
+
+  defparams change_password_params %{
+    email!: :string,
+    password!: :string,
+    password_new!: :string,
+  }
+
+  # actions
+
+  def register(conn, params) do
+    with true <- validate_params(register_params(params)),
+         {:ok, user} <- insert_user(params),
+         {:ok, user_activation} <- insert_user_activation(%{user_id: user.id}),
+         :ok <- send_registration_email(user, user_activation)
     do
       conn |> json(user)
     else
@@ -43,9 +58,30 @@ defmodule User.UsersController do
     end
   end
 
-  defparams forgot_password_params %{
-    email!: :string
-  }
+  def activate(conn, params) do
+    with true <- validate_params(activate_params(params)),
+         {:ok, user_activation} <- get_user_activation(params["activation_code"]),
+         {:ok, user} <- get_user(id: user_activation.user_id),
+         {:ok, user} <- update_user_active(user),
+         {:ok, user_activation} <- delete_user_activation(user_activation)
+    do
+      conn |> json(%{message: "User activated"})
+    else
+      {:error, err} -> conn |> put_status(400) |> json(%{error: err})
+    end
+  end
+
+  def login(conn, params) do
+    with true <- validate_params(login_params(params)),
+         {:ok, user} <- get_user(email: params["email"]),
+         true <- validate_user_password(user, params["password"]),
+         true <- validate_user_active(user)
+    do
+      conn |> json(user)
+    else
+      {:error, err} -> conn |> put_status(400) |> json(%{error: err})
+    end
+  end
 
   def forgot_password(conn, params) do
     with true <- validate_params(forgot_password_params(params)),
@@ -62,11 +98,6 @@ defmodule User.UsersController do
     end
   end
 
-  defparams new_password_params %{
-    reset_code!: :string,
-    password!: :string,
-  }
-
   def new_password(conn, params) do
     with true <- validate_params(new_password_params(params)),
          {:ok, new_password_request} <- get_new_password_request(params["reset_code"]),
@@ -80,19 +111,13 @@ defmodule User.UsersController do
     end
   end
 
-  defparams change_password_params %{
-    email!: :string,
-    password!: :string,
-    password_new!: :string,
-  }
-
   def change_password(conn, params) do
     input = change_password_params(params)
 
     with true <- validate_params(change_password_params(params)),
          {:ok, user} <- get_user(email: params["email"]),
-         {:ok, user} <- validate_user_password(user, params["password"]),
-         {:ok, _} <- update_user_password(user, params["password_new"])
+         true <- validate_user_password(user, params["password"]),
+         {:ok, user} <- update_user_password(user, params["password_new"])
     do
       conn |> json(%{message: "Password changed"})
     else
@@ -100,12 +125,7 @@ defmodule User.UsersController do
     end
   end
 
-  defp get_user(params) do
-    case Repo.get_by(User, params) do
-      nil -> {:error, "Invalid request"}
-      user -> {:ok, user}
-    end
-  end
+  # private
 
   defp insert_user(params) do
     {salt, hash} = gen_salt_and_hash(params["password"])
@@ -119,6 +139,13 @@ defmodule User.UsersController do
          end
   end
 
+  defp get_user(params) do
+    case Repo.get_by(User, params) do
+      nil -> {:error, "Invalid request"}
+      user -> {:ok, user}
+    end
+  end
+
   defp update_user_password(user, password) do
     {salt, hash} = gen_salt_and_hash(password)
 
@@ -126,8 +153,44 @@ defmodule User.UsersController do
       |> Ecto.Changeset.change(salt: salt, password: hash)
       |> Repo.update
       |> case do
-          {:ok, _} -> {:ok, "Password changed"}
+          {:ok, user} -> {:ok, "Password changed"}
           {:error, _} -> {:error, "Invalid request"}
+         end
+  end
+
+  defp update_user_active(user) do
+    user
+      |> Ecto.Changeset.change(active: true)
+      |> Repo.update
+      |> case do
+          {:ok, user} -> {:ok, "User activated"}
+          {:error, _} -> {:error, "Invalid request"}
+         end
+  end
+
+  defp insert_user_activation(params) do
+    UserActivation.changeset(%UserActivation{}, params)
+      |> Repo.insert
+      |> case do
+          {:ok, user_activation} -> {:ok, user_activation}
+          {:error, changeset} -> {:error, display_errors(changeset)}
+         end
+  end
+
+  defp get_user_activation(reset_code) do
+    Repo.get(UserActivation, reset_code)
+      |> case do
+          nil -> {:error, "Invalid request"}
+          user_activation -> {:ok, user_activation}
+         end
+  end
+
+  defp delete_user_activation(user_activation) do
+    user_activation
+      |> Repo.delete
+      |> case do
+          {:ok, user_activation} -> {:ok, user_activation}
+          {:error, changeset} -> {:error, display_errors(changeset)}
          end
   end
 
@@ -146,6 +209,15 @@ defmodule User.UsersController do
           {:ok, new_password_request} -> {:ok, new_password_request}
           {:error, changeset} -> {:error, display_errors(changeset)}
          end
+  end
+
+  defp send_registration_email(user, user_activation) do
+    send_email to: user.email,
+      from: "noreply@mmo.com",
+      subject: "Welcome",
+      html: user_activation.id
+
+    :ok
   end
 
   defp send_reset_password_email(user, new_password_request) do
@@ -167,9 +239,18 @@ defmodule User.UsersController do
 
   defp validate_user_password(user, password) do
     hash = Comeonin.Bcrypt.hashpass(password, user.salt)
-    case user.password == hash do
-      true -> {:ok, user}
-      false -> {:error, "Invalid request"}
+    if user.password == hash do
+      true
+    else
+      {:error, "Invalid request"}
+    end
+  end
+
+  defp validate_user_active(user) do
+    if user.active do
+      true
+    else
+      {:error, "Invalid request"}
     end
   end
 

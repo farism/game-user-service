@@ -10,6 +10,7 @@ defmodule User.User do
     field :password, :string
     field :salt, :string
     field :username, :string
+    field :active, :boolean, default: false
 
     timestamps()
   end

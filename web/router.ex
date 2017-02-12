@@ -12,6 +12,7 @@ defmodule User.Router do
   scope "/api", User do
     pipe_through :api
     post "/register", UsersController, :register
+    post "/activate", UsersController, :activate
     post "/login", UsersController, :login
     post "/forgot-password", UsersController, :forgot_password
     post "/new-password", UsersController, :new_password

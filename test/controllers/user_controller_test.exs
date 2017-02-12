@@ -4,6 +4,7 @@ defmodule User.UserControllerTest do
   use ExUnit.Case
 
   @register_path "/api/register/"
+  @activate_path "/api/activate/"
   @login_path "/api/login/"
   @forgot_password_path "/api/forgot-password/"
   @new_password_path "/api/new-password/"
@@ -12,18 +13,20 @@ defmodule User.UserControllerTest do
   defp read_email_file(path) do
     path
       |> Path.expand(__DIR__)
-      |> File.read
-      |> case do
-          {:ok, body} -> Poison.Parser.parse(body, keys: :atoms)
-          other -> other
-         end
+      |> File.read!
+      |> Poison.Parser.parse(keys: :atoms)
       |> case do
           {:ok, body} -> body
           other -> %{}
          end
   end
 
-  test "#register returns 400 when `email`, `password`, or `username` params are missing" do
+  defp get_user_activation_from_email(email) do
+    user = User.Repo.get_by!(User.User, email: email)
+    User.Repo.get_by!(User.UserActivation, user_id: user.id)
+  end
+
+  test "POST #{@register_path} returns 400 when `email`, `password`, or `username` params are missing" do
     response = build_conn()
       |> post(@register_path, [])
       |> json_response(400)
@@ -37,7 +40,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#register returns 400 when `email` or `username` are already taken" do
+  test "POST #{@register_path} returns 400 when `email` or `username` are already taken" do
     response = build_conn()
       |> post(@register_path, [email: "jane@doe.com", password: "pw", username: "janedoe"])
       |> post(@register_path, [email: "jane@doe.com", password: "pw", username: "janedoe2"])
@@ -61,7 +64,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#register returns 200 when user is inserted successfully" do
+  test "POST #{@register_path} returns 200 when user is inserted successfully" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> json_response(200)
@@ -73,7 +76,70 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#login returns 400 when `email` or `password` params are missing" do
+  test "POST #{@register_path} sends an email" do
+    build_conn()
+      |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
+      |> json_response(200)
+
+    email = read_email_file("../../priv/mailgun.json")
+
+    assert Map.take(email, [:to, :from, :subject]) == %{
+      to: "john@doe.com",
+      from: "noreply@mmo.com",
+      subject: "Welcome"
+    }
+  end
+
+  test "POST #{@activate_path} returns 400 when `activation_code` param is missing" do
+    response = build_conn()
+      |> post(@activate_path, [])
+      |> json_response(400)
+
+    assert response == %{
+      "error" => %{
+        "activation_code" => ["can't be blank"]
+      }
+    }
+  end
+
+  test "POST #{@activate_path} returns 400 when activation code can't be found" do
+    response = build_conn()
+      |> post(@activate_path, [activation_code: Ecto.UUID.generate()])
+      |> json_response(400)
+
+    assert response == %{
+      "error" => "Invalid request"
+    }
+  end
+
+  test "POST #{@activate_path} returns 400 when activation code is used twice" do
+    user_activation = build_conn()
+      |> post(@register_path, [email: "john@smith.com", password: "pw", username: "johnsmith"])
+      |> json_response(200)
+      |> Map.get("email")
+      |> get_user_activation_from_email()
+
+    response = build_conn()
+      |> post(@activate_path, [activation_code: user_activation.id])
+      |> post(@activate_path, [activation_code: user_activation.id])
+      |> json_response(400)
+
+    assert response == %{
+      "error" => "Invalid request"
+    }
+  end
+
+  test "POST #{@activate_path} returns 200 when activation code is found" do
+    response = build_conn()
+      |> post(@activate_path, [activation_code: Ecto.UUID.generate()])
+      |> json_response(400)
+
+    assert response == %{
+      "error" => "Invalid request"
+    }
+  end
+
+  test "POST #{@login_path} returns 400 when `email` or `password` params are missing" do
     response = build_conn()
       |> post(@login_path, [])
       |> json_response(400)
@@ -86,7 +152,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#login returns 400 when email does not exist" do
+  test "POST #{@login_path} returns 400 when email does not exist" do
     response = build_conn()
       |> post(@login_path, [email: "john@doe.com", password: "pw"])
       |> json_response(400)
@@ -96,7 +162,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#login returns 400 when email exists but incorrect password" do
+  test "POST #{@login_path} returns 400 when email exists but incorrect password" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@login_path, [email: "john@doe.com", password: "wrong"])
@@ -107,9 +173,26 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#login returns 200 when user is found successfully" do
+  test "POST #{@login_path} returns 400 when email exists but user is inactive" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
+      |> post(@login_path, [email: "john@doe.com", password: "pw"])
+      |> json_response(400)
+
+    assert response == %{
+      "error" => "Invalid request"
+    }
+  end
+
+  test "POST #{@login_path} returns 200 when user is found successfully" do
+    user_activation = build_conn()
+      |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
+      |> json_response(200)
+      |> Map.get("email")
+      |> get_user_activation_from_email()
+
+    response = build_conn()
+      |> post(@activate_path, [activation_code: user_activation.id])
       |> post(@login_path, [email: "john@doe.com", password: "pw"])
       |> json_response(200)
       |> Map.delete("inserted_at")
@@ -120,7 +203,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#forgot_password returns 400 when `email` param is missing" do
+  test "POST #{@forgot_password_path} returns 400 when `email` param is missing" do
     response = build_conn()
       |> post(@forgot_password_path, [])
       |> json_response(400)
@@ -132,7 +215,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#forgot_password returns 200 when `email` param exists" do
+  test "POST #{@forgot_password_path} returns 200 when `email` param exists" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@forgot_password_path, [email: "john@doe.com"])
@@ -143,7 +226,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#forgot_password returns 200 even when email doesn't exist in db" do
+  test "POST #{@forgot_password_path} returns 200 even when email doesn't exist in db" do
     response = build_conn()
       |> post(@forgot_password_path, [email: "fake_random@email.com"])
       |> json_response(200)
@@ -153,7 +236,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#forgot_password sends an email" do
+  test "POST #{@forgot_password_path} sends an email" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@forgot_password_path, [email: "john@doe.com"])
@@ -168,7 +251,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#new_password returns 400 when `reset_code` or `password` params are missing" do
+  test "POST #{@new_password_path} returns 400 when `reset_code` or `password` params are missing" do
     response = build_conn()
       |> post(@new_password_path, [])
       |> json_response(400)
@@ -181,7 +264,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#new_password returns 400 when `reset_code` is invalid or expired" do
+  test "POST #{@new_password_path} returns 400 when `reset_code` is invalid or expired" do
     build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@forgot_password_path, [email: "john@doe.com"])
@@ -203,7 +286,7 @@ defmodule User.UserControllerTest do
       |> case do
           nil -> nil
           request -> request
-            |> Ecto.Changeset.change(inserted_at: Timex.shift(request.inserted_at, hours: -24))
+            |> Ecto.Changeset.change(inserted_at: Timex.shift(request.inserted_at, hours: -48))
          end
       |> Repo.update
 
@@ -216,7 +299,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#new_password returns 200 when `reset_code` is valid" do
+  test "POST #{@new_password_path} returns 200 when `reset_code` is valid" do
     build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@forgot_password_path, [email: "john@doe.com"])
@@ -232,7 +315,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#change_password returns 400 when `email`, `password` or `password_new` params are missing" do
+  test "POST #{@change_password_path} returns 400 when `email`, `password` or `password_new` params are missing" do
     response = build_conn()
       |> post(@change_password_path, [])
       |> json_response(400)
@@ -246,7 +329,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#change_password returns 400 when user could not be found" do
+  test "POST #{@change_password_path} returns 400 when user could not be found" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@change_password_path, [email: "john2@doe.com", password: "pw", password_new: "pw2"])
@@ -257,7 +340,7 @@ defmodule User.UserControllerTest do
     }
   end
 
-  test "#change_password returns 200 when password was changed" do
+  test "POST #{@change_password_path} returns 200 when password was changed" do
     response = build_conn()
       |> post(@register_path, [email: "john@doe.com", password: "pw", username: "johndoe"])
       |> post(@change_password_path, [email: "john@doe.com", password: "pw", password_new: "pw2"])
@@ -265,16 +348,6 @@ defmodule User.UserControllerTest do
 
     assert response == %{
       "message" => "Password changed"
-    }
-
-    response = build_conn()
-      |> post(@login_path, [email: "john@doe.com", password: "pw2"])
-      |> json_response(200)
-      |> Map.delete("inserted_at")
-
-    assert response == %{
-      "email" => "john@doe.com",
-      "username" => "johndoe"
     }
   end
 

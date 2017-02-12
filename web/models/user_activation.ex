@@ -1,9 +1,9 @@
-defmodule User.NewPasswordRequest do
+defmodule User.UserActivation do
   use User.Web, :model
 
   @primary_key {:id, :binary_id, autogenerate: true}
 
-  schema "new_password_requests" do
+  schema "user_activations" do
     field :user_id, :string
 
     timestamps()
