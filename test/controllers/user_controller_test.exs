@@ -92,7 +92,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Invalid login"
+      "error" => "Invalid request"
     }
   end
 
@@ -103,7 +103,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Invalid login"
+      "error" => "Invalid request"
     }
   end
 
@@ -194,7 +194,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Reset code is invalid or expired",
+      "error" => "Invalid request",
     }
 
     # expired
@@ -212,7 +212,7 @@ defmodule User.UserControllerTest do
       |> json_response(400)
 
     assert response == %{
-      "error" => "Reset code is invalid or expired",
+      "error" => "Invalid request",
     }
   end
 
