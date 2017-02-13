@@ -20,6 +20,16 @@ config :logger, :console, format: "[$level] $message\n"
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20
 
+config :guardian, Guardian,
+  allowed_algos: ["RS512"], # optional
+  verify_module: Guardian.JWT,  # optional
+  issuer: "User",
+  ttl: { 30, :days },
+  allowed_drift: 2000,
+  verify_issuer: true, # optional
+  secret_key: {User.GuardianSecretKey, :fetch},
+  serializer: User.GuardianSerializer
+
 # Configure your database
 config :user, User.Repo,
   adapter: Ecto.Adapters.Postgres,

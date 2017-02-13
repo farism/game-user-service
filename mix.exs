@@ -19,7 +19,7 @@ defmodule User.Mixfile do
   def application do
     [mod: {User, []},
      applications: [:phoenix, :phoenix_pubsub, :phoenix_html, :cowboy, :logger, :gettext,
-                    :phoenix_ecto, :timex_ecto, :postgrex, :mailgun]]
+                    :phoenix_ecto, :timex_ecto, :postgrex, :mailgun, :ex_machina]]
   end
 
   # Specifies which paths to compile per environment.
@@ -32,6 +32,7 @@ defmodule User.Mixfile do
   defp deps do
     [{:comeonin, "~> 3.0"},
      {:cowboy, "~> 1.0.0"},
+     {:ex_machina, "~> 1.0", only: :test},
      {:gettext, "~> 0.11"},
      {:guardian, "~> 0.14"},
      {:jose, "~> 1.8"},

@@ -9,6 +9,16 @@ config :user, User.Endpoint,
 # Print only warnings and errors during test
 config :logger, level: :warn
 
+config :guardian, Guardian,
+  allowed_algos: ["RS512"], # optional
+  verify_module: Guardian.JWT,  # optional
+  issuer: "User",
+  ttl: { 30, :days },
+  allowed_drift: 2000,
+  verify_issuer: true, # optional
+  secret_key: {User.GuardianSecretKeyFixture, :fetch},
+  serializer: User.GuardianSerializer
+
 # Configure your database
 config :user, User.Repo,
   adapter: Ecto.Adapters.Postgres,
