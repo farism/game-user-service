@@ -7,10 +7,7 @@ defmodule User.UsersController do
     test_file_path: "priv/mailgun.json",
     domain: Application.get_env(:user, :mailgun_domain),
     key: Application.get_env(:user, :mailgun_key)
-  alias User.Repo
-  alias User.NewPasswordRequest
-  alias User.UserActivation
-  alias User.User
+  alias User.{Repo, NewPasswordRequest, UserActivation, User}
 
   # param validation changesets
 
