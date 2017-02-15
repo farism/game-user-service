@@ -22,11 +22,6 @@ defmodule User.UserControllerTest do
          end
   end
 
-  defp get_user_activation_from_email(email) do
-    user = User.Repo.get_by!(User.User, email: email)
-    User.Repo.get_by!(User.UserActivation, user_id: user.id)
-  end
-
   describe "POST #{@register_path}" do
 
     test "[400] when `email`, `password`, or `username` params are missing" do

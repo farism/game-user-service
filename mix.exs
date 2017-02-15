@@ -19,7 +19,7 @@ defmodule User.Mixfile do
   def application do
     [mod: {User, []},
      applications: [:phoenix, :phoenix_pubsub, :phoenix_html, :cowboy, :logger, :gettext,
-                    :phoenix_ecto, :timex_ecto, :postgrex, :mailgun, :ex_machina]]
+                    :phoenix_ecto, :timex_ecto, :postgrex, :mailgun]]
   end
 
   # Specifies which paths to compile per environment.

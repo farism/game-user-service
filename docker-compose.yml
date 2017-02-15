@@ -13,6 +13,8 @@ services:
       - db
     links:
       - db
+    ports:
+      - 4000:4000
     volumes:
       - ./mix.exs:/app/mix.exs
       - ./config:/app/config
@@ -20,8 +22,6 @@ services:
       - ./priv:/app/priv
       - ./test:/app/test
       - ./web:/app/web
-    ports:
-      - 4000:4000
     env_file: .env
     environment:
       - MIX_ENV=dev
