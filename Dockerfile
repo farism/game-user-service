@@ -1,4 +1,4 @@
-FROM elixir:1.4.0
+FROM elixir:1.5.1
 
 ARG env
 
